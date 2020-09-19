@@ -14,33 +14,56 @@ set(plug_sources
     include/plugids.h
     include/plugprocessor.h
     include/version.h
+    include/packaginginfo.h
     source/plugfactory.cpp
     source/plugcontroller.cpp
     source/plugprocessor.cpp
 )
 
-file(GLOB_RECURSE nap_sources
-        ${NAP_DIRECTORY}/utility/src/*.*
-        ${NAP_DIRECTORY}/rtti/src/*.*
-        ${NAP_DIRECTORY}/modules/core/src/*.*
-        )
+# utility sources
+file(GLOB_RECURSE utility_sources ${NAP_DIRECTORY}/utility/src/*.*)
+list(APPEND plug_sources ${utility_sources})
+
+# rtti sources
+file(GLOB_RECURSE rtti_sources ${NAP_DIRECTORY}/rtti/src/*.*)
+list(REMOVE_ITEM rtti_sources ${NAP_DIRECTORY}/rtti/src/rtti/naprtti.cpp)
+list(APPEND plug_sources ${rtti_sources})
+
+# core sources
+if(APPLE)
+    file(GLOB core_sources ${NAP_DIRECTORY}/core/src/nap/*.cpp ${NAP_DIRECTORY}/core/src/nap/*.h ${NAP_DIRECTORY}/core/src/nap/native/*.cpp ${NAP_DIRECTORY}/core/src/nap/osx/*.cpp)
+elseif(MSVC)
+    file(GLOB core_sources ${NAP_DIRECTORY}/core/src/nap/*.cpp ${NAP_DIRECTORY}/win32/src/nap/*.h ${NAP_DIRECTORY}/core/src/nap/native/*.cpp)
+endif()
+list(REMOVE_ITEM core_sources ${NAP_DIRECTORY}/core/src/core/napcore.cpp)
+list(APPEND plug_sources ${core_sources})
+
+# audio sources
+file(GLOB_RECURSE audio_sources ${NAP_DIRECTORY}/modules/audio/src/*.*)
+list(REMOVE_ITEM audio_sources ${NAP_DIRECTORY}/modules/audio/src/mod_napaudio.cpp)
+list(APPEND plug_sources ${audio_sources})
+
+message(STATUS ${plug_sources})
 
 set(include_directories
+        include/
         ${NAP_DIRECTORY}/utility/src/
         ${NAP_DIRECTORY}/rtti/src/
         ${NAP_DIRECTORY}/core/src/
+        ${NAP_DIRECTORY}/audio/src/
         )
 
-list(APPEND plug_sources ${nap_sources})
-
-message(STATUS ${MOODYCAMEL_INCLUDE_DIRS})
 
 #--- HERE change the target Name for your plug-in (for ex. set(target myDelay))-------
 set(target helloworld_nap)
 
 smtg_add_vst3plugin(${target} ${plug_sources})
 set_target_properties(${target} PROPERTIES ${SDK_IDE_MYPLUGINS_FOLDER})
-target_link_libraries(${target} PRIVATE base sdk RTTR::Core)
+if(APPLE)
+    target_link_libraries(${target} PRIVATE base sdk RTTR::Core "-framework CoreServices")
+elseif(win32)
+    target_link_libraries(${target} PRIVATE base sdk RTTR::Core)
+endif()
 target_include_directories(${target} PUBLIC ${MOODYCAMEL_INCLUDE_DIRS} ${RAPIDJSON_INCLUDE_DIRS} ${include_directories})
 
 if(SMTG_MAC)

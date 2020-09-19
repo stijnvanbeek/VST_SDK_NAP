@@ -38,6 +38,11 @@
 
 #include "public.sdk/source/vst/vsteditcontroller.h"
 
+#include <utility/errorstate.h>
+#include <utility/threading.h>
+#include <nap/core.h>
+#include <rtti/objectptr.h>
+
 namespace Steinberg {
 namespace HelloWorld {
 
@@ -59,6 +64,11 @@ public:
 
 	//---from EditController-----
 	tresult PLUGIN_API setComponentState (IBStream* state) SMTG_OVERRIDE;
+
+	nap::utility::ErrorState errorState;
+	nap::TaskQueue mTaskQueue;
+	nap::rtti::ObjectPtr<int> mObjPtr;
+	nap::Core mCore;
 };
 
 //------------------------------------------------------------------------
