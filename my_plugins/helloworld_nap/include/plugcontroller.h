@@ -65,10 +65,6 @@ public:
 	//---from EditController-----
 	tresult PLUGIN_API setComponentState (IBStream* state) SMTG_OVERRIDE;
 
-	nap::utility::ErrorState errorState;
-	nap::TaskQueue mTaskQueue;
-	nap::rtti::ObjectPtr<int> mObjPtr;
-	nap::Core mCore;
 };
 
 //------------------------------------------------------------------------

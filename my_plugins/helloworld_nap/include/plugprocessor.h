@@ -38,6 +38,13 @@
 
 #include "public.sdk/source/vst/vstaudioeffect.h"
 
+#include "controlthread.h"
+
+#include <audio/service/audioservice.h>
+#include <midiservice.h>
+#include <nap/core.h>
+#include <utility/threading.h>
+
 namespace Steinberg {
 namespace HelloWorld {
 
@@ -68,6 +75,11 @@ protected:
 	Vst::ParamValue mParam1 = 0;
 	int16 mParam2 = 0;
 	bool mBypass = false;
+	nap::Core mCore;
+	nap::audio::AudioService* mAudioService = nullptr;
+	nap::MidiService* mMidiService = nullptr;
+	std::unique_ptr<nap::ControlThread> mControlThread = nullptr;
+
 };
 
 //------------------------------------------------------------------------

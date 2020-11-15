@@ -40,6 +40,14 @@
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
+#include "pluginterfaces/vst/ivstevents.h"
+
+#include <utility/errorstate.h>
+#include <utility/fileutils.h>
+#include <sceneservice.h>
+#include <audio/service/audioservice.h>
+#include <audio/service/advancedaudioservice.h>
+#include <pythonscriptservice.h>
 
 namespace Steinberg {
 namespace HelloWorld {
@@ -59,10 +67,62 @@ tresult PLUGIN_API PlugProcessor::initialize (FUnknown* context)
 	if (result != kResultTrue)
 		return kResultFalse;
 
+	//--- create midi input
+    addEventInput (STR16("MIDI in"), 1);
+
 	//---create Audio In/Out busses------
 	// we want a stereo Input and a Stereo Output
-	addAudioInput (STR16 ("AudioInput"), Vst::SpeakerArr::kStereo);
-	addAudioOutput (STR16 ("AudioOutput"), Vst::SpeakerArr::kStereo);
+//	addAudioInput (STR16("AudioInput"), Vst::SpeakerArr::kStereo);
+	addAudioOutput (STR16("AudioOutput"), Vst::SpeakerArr::kStereo);
+
+	std::string dataPath = "/Users/macbook/Documents/Repositories/nap/apps/napaudioapp/data/fmsynth.json";
+	std::string pythonHomePath = "/Users/macbook/Documents/Repositories/thirdparty/python/osx/install";
+    nap::utility::ErrorState error;
+
+    std::set<nap::rtti::TypeInfo> serviceTypes = { RTTI_OF(nap::SceneService), RTTI_OF(nap::audio::AudioService), RTTI_OF(nap::audio::AdvancedAudioService), RTTI_OF(nap::PythonScriptService), RTTI_OF(nap::MidiService) };
+
+    // Initialize engine
+    if (!mCore.initializeEngine(dataPath, pythonHomePath, serviceTypes, error))
+    {
+        error.fail("unable to initialize engine");
+        return kResultTrue;
+    }
+    // Initialize the various services
+    if (!mCore.initializeServices(error))
+    {
+        mCore.shutdownServices();
+        error.fail("Failed to initialize services");
+        return kResultTrue;
+    }
+
+    if (!mCore.initializePython(error))
+        return false;
+
+    mAudioService = mCore.getService<nap::audio::AudioService>();
+    if (mAudioService == nullptr)
+    {
+        error.fail("Couldn't find audio service");
+        return kResultFalse;
+    }
+
+    mMidiService = mCore.getService<nap::MidiService>();
+    if (mMidiService == nullptr)
+    {
+        error.fail("Couldn't find midi service");
+        return kResultFalse;
+    }
+
+    auto resourceManager = mCore.getResourceManager();
+    if (!resourceManager->loadFile(nap::utility::getFileName(dataPath), error))
+    {
+        error.fail("Failed to load json file");
+        return kResultFalse;
+    }
+
+    mCore.start();
+
+    mControlThread = std::make_unique<nap::ControlThread>(mCore, [](double){});
+    mControlThread->start();
 
 	return kResultTrue;
 }
@@ -73,12 +133,12 @@ tresult PLUGIN_API PlugProcessor::setBusArrangements (Vst::SpeakerArrangement* i
                                                             Vst::SpeakerArrangement* outputs,
                                                             int32 numOuts)
 {
-	// we only support one in and output bus and these busses must have the same number of channels
-	if (numIns == 1 && numOuts == 1 && inputs[0] == outputs[0])
-	{
-		return AudioEffect::setBusArrangements (inputs, numIns, outputs, numOuts);
-	}
-	return kResultFalse;
+    auto& nodeManager = mAudioService->getNodeManager();
+    nodeManager.setInputChannelCount(0);
+    nodeManager.setOutputChannelCount(2);
+
+    return AudioEffect::setBusArrangements (inputs, numIns, outputs, numOuts);
+//	return kResultFalse;
 }
 
 //-----------------------------------------------------------------------------
@@ -86,6 +146,10 @@ tresult PLUGIN_API PlugProcessor::setupProcessing (Vst::ProcessSetup& setup)
 {
 	// here you get, with setup, information about:
 	// sampleRate, processMode, maximum number of samples per audio block
+    auto& nodeManager = mAudioService->getNodeManager();
+    nodeManager.setSampleRate(setup.sampleRate);
+	nodeManager.setInternalBufferSize(setup.maxSamplesPerBlock);
+
 	return AudioEffect::setupProcessing (setup);
 }
 
@@ -143,9 +207,44 @@ tresult PLUGIN_API PlugProcessor::process (Vst::ProcessData& data)
 		}
 	}
 
-	//--- Process Audio---------------------
+	// --- Process note events
+	auto events = data.inputEvents;
+    if (events)
+    {
+        int32 count = events->getEventCount ();
+        for (int32 i = 0; i < count; i++)
+        {
+            Vst::Event e;
+            events->getEvent (i, e);
+            switch (e.type)
+            {
+                case Vst::Event::kNoteOnEvent:
+                {
+                    auto midiEvent = std::make_unique<nap::MidiEvent>(nap::MidiEvent::Type::noteOn, e.noteOn.pitch, e.noteOn.velocity * 127);
+                    mMidiService->enqueueEvent(std::move(midiEvent));
+//                    notes[eventPos++] = e.sampleOffset;
+//                    notes[eventPos++] = e.noteOn.pitch;
+//                    notes[eventPos++] = e.noteOn.velocity * 127;
+                    break;
+                }
+                case Vst::Event::kNoteOffEvent:
+                {
+                    auto midiEvent = std::make_unique<nap::MidiEvent>(nap::MidiEvent::Type::noteOff, e.noteOn.pitch, 0);
+                    mMidiService->enqueueEvent(std::move(midiEvent));
+//                    notes[eventPos++] = e.sampleOffset;
+//                    notes[eventPos++] = e.noteOff.pitch;
+//                    notes[eventPos++] = 0;
+                    break;
+                }
+                default:
+                    continue;
+            }
+        }
+    }
+
+    //--- Process Audio---------------------
 	//--- ----------------------------------
-	if (data.numInputs == 0 || data.numOutputs == 0)
+	if (data.numOutputs == 0)
 	{
 		// nothing to do
 		return kResultOk;
@@ -156,6 +255,7 @@ tresult PLUGIN_API PlugProcessor::process (Vst::ProcessData& data)
 		// Process Algorithm
 		// Ex: algo.process (data.inputs[0].channelBuffers32, data.outputs[0].channelBuffers32,
 		// data.numSamples);
+		mAudioService->onAudioCallback(data.numInputs > 0 ? data.inputs[0].channelBuffers32 : nullptr, data.outputs[0].channelBuffers32, data.numSamples);
 	}
 	return kResultOk;
 }
