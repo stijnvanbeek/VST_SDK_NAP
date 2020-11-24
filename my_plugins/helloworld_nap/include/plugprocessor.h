@@ -44,6 +44,7 @@
 #include <midiservice.h>
 #include <nap/core.h>
 #include <utility/threading.h>
+#include <parameter.h>
 
 namespace Steinberg {
 namespace HelloWorld {
@@ -53,6 +54,7 @@ class PlugProcessor : public Vst::AudioEffect
 {
 public:
 	PlugProcessor ();
+	~PlugProcessor();
 
 	tresult PLUGIN_API initialize (FUnknown* context) SMTG_OVERRIDE;
 	tresult PLUGIN_API setBusArrangements (Vst::SpeakerArrangement* inputs, int32 numIns,
@@ -75,11 +77,12 @@ protected:
 	Vst::ParamValue mParam1 = 0;
 	int16 mParam2 = 0;
 	bool mBypass = false;
-	nap::Core mCore;
+	std::unique_ptr<nap::Core> mCore = nullptr;
 	nap::audio::AudioService* mAudioService = nullptr;
 	nap::MidiService* mMidiService = nullptr;
-	std::unique_ptr<nap::ControlThread> mControlThread = nullptr;
+	nap::rtti::ObjectPtr<nap::ParameterGroup> mParameters = nullptr;
 
+    static std::unique_ptr<nap::ControlThread> sControlThread;
 };
 
 //------------------------------------------------------------------------

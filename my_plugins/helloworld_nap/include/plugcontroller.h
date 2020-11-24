@@ -38,11 +38,6 @@
 
 #include "public.sdk/source/vst/vsteditcontroller.h"
 
-#include <utility/errorstate.h>
-#include <utility/threading.h>
-#include <nap/core.h>
-#include <rtti/objectptr.h>
-
 namespace Steinberg {
 namespace HelloWorld {
 

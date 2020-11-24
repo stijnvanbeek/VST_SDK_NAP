@@ -4,10 +4,10 @@
 namespace nap
 {
 
-    class ControlThread : public WorkerThread
+    class ControlThread
     {
     public:
-        ControlThread(Core& core, std::function<void(double)> updateFunction) : WorkerThread(false), mCore(core), mUpdateFunction(updateFunction)
+        ControlThread(std::function<void(double)> updateFunction) : mUpdateFunction(updateFunction)
         {
             setControlRate(60.f);
         }
@@ -17,19 +17,58 @@ namespace nap
             mWaitTime = MicroSeconds(static_cast<long>(1000000.0 / static_cast<double>(rate)));
         }
 
+        void addCore(Core& core)
+        {
+            auto corePtr = &core;
+            enqueue([&, corePtr]()
+            {
+                mCores.emplace(corePtr);
+            });
+        }
+
+        void removeCore(Core& core)
+        {
+            auto corePtr = &core;
+            enqueue([&, corePtr]()
+            {
+                mCores.erase(corePtr);
+            });
+        }
+
+        void start()
+        {
+            if (!mRunning)
+                mThread = std::make_unique<std::thread>([&](){ loop(); });
+        }
+
+        void stop()
+        {
+            mRunning = false;
+            mThread->join();
+            mThread = nullptr;
+        }
+
+        bool isRunning() const { return mRunning; }
+        void enqueue(TaskQueue::Task task) { mTaskQueue.enqueue(task); }
+
     private:
-        void loop() override
+        void loop()
         {
             HighResolutionTimer timer;
             MicroSeconds frame_time;
             MicroSeconds delay_time;
+            mRunning =  true;
+
             while (isRunning())
             {
+                mTaskQueue.process();
+
                 // Get time point for next frame
                 frame_time = timer.getMicros() + mWaitTime;
 
                 // update
-                mCore.update(mUpdateFunction);
+                for (auto core : mCores)
+                    core->update(mUpdateFunction);
 
                 // Only sleep when there is at least 1 millisecond that needs to be compensated for
                 // The actual outcome of the sleep call can vary greatly from system to system
@@ -41,8 +80,11 @@ namespace nap
         }
 
         MicroSeconds mWaitTime;
-        Core& mCore;
+        std::set<Core*> mCores;
         std::function<void(double)> mUpdateFunction = nullptr;
+        std::atomic<bool> mRunning = { false };
+        TaskQueue mTaskQueue;
+        std::unique_ptr<std::thread> mThread = nullptr;
     };
 
 }

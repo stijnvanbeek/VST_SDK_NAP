@@ -36,9 +36,16 @@
 
 #include "../include/plugcontroller.h"
 #include "../include/plugids.h"
+#include "napinfo.h"
 
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ibstream.h"
+
+#include <nap/core.h>
+#include <pythonscriptservice.h>
+#include <parameter.h>
+#include <parameterservice.h>
+#include <rtti/jsonreader.h>
 
 namespace Steinberg {
 namespace HelloWorld {
@@ -46,6 +53,8 @@ namespace HelloWorld {
 //-----------------------------------------------------------------------------
 tresult PLUGIN_API PlugController::initialize (FUnknown* context)
 {
+    auto napParameters = nap::Global::parameters;
+
 	tresult result = EditController::initialize (context);
 	if (result == kResultTrue)
 	{

@@ -36,6 +36,7 @@
 
 #include "../include/plugprocessor.h"
 #include "../include/plugids.h"
+#include "napinfo.h"
 
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ibstream.h"
@@ -48,15 +49,26 @@
 #include <audio/service/audioservice.h>
 #include <audio/service/advancedaudioservice.h>
 #include <pythonscriptservice.h>
+#include <parameter.h>
+#include <parameterservice.h>
 
 namespace Steinberg {
 namespace HelloWorld {
 
-//-----------------------------------------------------------------------------
+// Initialize static member
+std::unique_ptr<nap::ControlThread> PlugProcessor::sControlThread = nullptr;
+
+    //-----------------------------------------------------------------------------
 PlugProcessor::PlugProcessor ()
 {
 	// register its editor class
 	setControllerClass (MyControllerUID);
+}
+
+
+PlugProcessor::~PlugProcessor()
+{
+    sControlThread->removeCore(*mCore);
 }
 
 //-----------------------------------------------------------------------------
@@ -72,57 +84,65 @@ tresult PLUGIN_API PlugProcessor::initialize (FUnknown* context)
 
 	//---create Audio In/Out busses------
 	// we want a stereo Input and a Stereo Output
-//	addAudioInput (STR16("AudioInput"), Vst::SpeakerArr::kStereo);
+	addAudioInput (STR16("AudioInput"), Vst::SpeakerArr::kStereo);
 	addAudioOutput (STR16("AudioOutput"), Vst::SpeakerArr::kStereo);
 
-	std::string dataPath = "/Users/macbook/Documents/Repositories/nap/apps/napaudioapp/data/fmsynth.json";
-	std::string pythonHomePath = "/Users/macbook/Documents/Repositories/thirdparty/python/osx/install";
     nap::utility::ErrorState error;
 
-    std::set<nap::rtti::TypeInfo> serviceTypes = { RTTI_OF(nap::SceneService), RTTI_OF(nap::audio::AudioService), RTTI_OF(nap::audio::AdvancedAudioService), RTTI_OF(nap::PythonScriptService), RTTI_OF(nap::MidiService) };
+    std::set<nap::rtti::TypeInfo> serviceTypes = { RTTI_OF(nap::SceneService), RTTI_OF(nap::audio::AudioService), RTTI_OF(nap::audio::AdvancedAudioService), RTTI_OF(nap::PythonScriptService), RTTI_OF(nap::MidiService), RTTI_OF(nap::ParameterService) };
 
     // Initialize engine
-    if (!mCore.initializeEngine(dataPath, pythonHomePath, serviceTypes, error))
+    mCore = std::make_unique<nap::Core>();
+    if (!mCore->initializeEngine(nap::dataPath, nap::pythonHomePath, serviceTypes, error))
     {
         error.fail("unable to initialize engine");
         return kResultTrue;
     }
     // Initialize the various services
-    if (!mCore.initializeServices(error))
+    if (!mCore->initializeServices(error))
     {
-        mCore.shutdownServices();
+        mCore->shutdownServices();
         error.fail("Failed to initialize services");
-        return kResultTrue;
+        return kResultFalse;
     }
 
-    if (!mCore.initializePython(error))
-        return false;
+    if (!mCore->initializePython(error))
+        return kResultFalse;
 
-    mAudioService = mCore.getService<nap::audio::AudioService>();
+    mAudioService = mCore->getService<nap::audio::AudioService>();
     if (mAudioService == nullptr)
     {
         error.fail("Couldn't find audio service");
         return kResultFalse;
     }
 
-    mMidiService = mCore.getService<nap::MidiService>();
+    mMidiService = mCore->getService<nap::MidiService>();
     if (mMidiService == nullptr)
     {
         error.fail("Couldn't find midi service");
         return kResultFalse;
     }
 
-    auto resourceManager = mCore.getResourceManager();
-    if (!resourceManager->loadFile(nap::utility::getFileName(dataPath), error))
+    auto resourceManager = mCore->getResourceManager();
+    if (!resourceManager->loadFile(nap::utility::getFileName(nap::dataPath), error))
     {
         error.fail("Failed to load json file");
         return kResultFalse;
     }
 
-    mCore.start();
+    mParameters = resourceManager->findObject<nap::ParameterGroup>("Parameters");
+    if (nap::Global::parameters == nullptr)
+        nap::Global::parameters = mParameters.get();
 
-    mControlThread = std::make_unique<nap::ControlThread>(mCore, [](double){});
-    mControlThread->start();
+    mCore->start();
+
+    if (sControlThread == nullptr)
+    {
+        sControlThread = std::make_unique<nap::ControlThread>([](double){});
+        sControlThread->start();
+    }
+
+    sControlThread->addCore(*mCore);
 
 	return kResultTrue;
 }
@@ -134,7 +154,7 @@ tresult PLUGIN_API PlugProcessor::setBusArrangements (Vst::SpeakerArrangement* i
                                                             int32 numOuts)
 {
     auto& nodeManager = mAudioService->getNodeManager();
-    nodeManager.setInputChannelCount(0);
+    nodeManager.setInputChannelCount(2);
     nodeManager.setOutputChannelCount(2);
 
     return AudioEffect::setBusArrangements (inputs, numIns, outputs, numOuts);
