@@ -12,6 +12,11 @@ namespace nap
             setControlRate(60.f);
         }
 
+        ~ControlThread()
+        {
+            stop();
+        }
+
         void setControlRate(float rate)
         {
             mWaitTime = MicroSeconds(static_cast<long>(1000000.0 / static_cast<double>(rate)));
