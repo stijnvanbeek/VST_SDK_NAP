@@ -7,9 +7,14 @@ namespace nap
     class ControlThread
     {
     public:
-        ControlThread(std::function<void(double)> updateFunction) : mUpdateFunction(updateFunction)
+        ControlThread(Core& core) : mCore(&core)
         {
             setControlRate(60.f);
+        }
+
+        ~ControlThread()
+        {
+            stop();
         }
 
         void setControlRate(float rate)
@@ -17,23 +22,6 @@ namespace nap
             mWaitTime = MicroSeconds(static_cast<long>(1000000.0 / static_cast<double>(rate)));
         }
 
-        void addCore(Core& core)
-        {
-            auto corePtr = &core;
-            enqueue([&, corePtr]()
-            {
-                mCores.emplace(corePtr);
-            });
-        }
-
-        void removeCore(Core& core)
-        {
-            auto corePtr = &core;
-            enqueue([&, corePtr]()
-            {
-                mCores.erase(corePtr);
-            });
-        }
 
         void start()
         {
@@ -67,8 +55,7 @@ namespace nap
                 frame_time = timer.getMicros() + mWaitTime;
 
                 // update
-                for (auto core : mCores)
-                    core->update(mUpdateFunction);
+                mCore->update(mUpdateFunction);
 
                 // Only sleep when there is at least 1 millisecond that needs to be compensated for
                 // The actual outcome of the sleep call can vary greatly from system to system
@@ -80,8 +67,8 @@ namespace nap
         }
 
         MicroSeconds mWaitTime;
-        std::set<Core*> mCores;
-        std::function<void(double)> mUpdateFunction = nullptr;
+        Core* mCore = nullptr;
+        std::function<void(double)> mUpdateFunction = [](double){};
         std::atomic<bool> mRunning = { false };
         TaskQueue mTaskQueue;
         std::unique_ptr<std::thread> mThread = nullptr;

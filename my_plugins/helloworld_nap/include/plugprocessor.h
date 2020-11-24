@@ -81,8 +81,7 @@ protected:
 	nap::audio::AudioService* mAudioService = nullptr;
 	nap::MidiService* mMidiService = nullptr;
 	nap::rtti::ObjectPtr<nap::ParameterGroup> mParameters = nullptr;
-
-    static std::unique_ptr<nap::ControlThread> sControlThread;
+    std::unique_ptr<nap::ControlThread> mControlThread = nullptr;
 };
 
 //------------------------------------------------------------------------

@@ -55,8 +55,6 @@
 namespace Steinberg {
 namespace HelloWorld {
 
-// Initialize static member
-std::unique_ptr<nap::ControlThread> PlugProcessor::sControlThread = nullptr;
 
     //-----------------------------------------------------------------------------
 PlugProcessor::PlugProcessor ()
@@ -68,7 +66,6 @@ PlugProcessor::PlugProcessor ()
 
 PlugProcessor::~PlugProcessor()
 {
-    sControlThread->removeCore(*mCore);
 }
 
 //-----------------------------------------------------------------------------
@@ -136,13 +133,8 @@ tresult PLUGIN_API PlugProcessor::initialize (FUnknown* context)
 
     mCore->start();
 
-    if (sControlThread == nullptr)
-    {
-        sControlThread = std::make_unique<nap::ControlThread>([](double){});
-        sControlThread->start();
-    }
-
-    sControlThread->addCore(*mCore);
+    mControlThread = std::make_unique<nap::ControlThread>(*mCore);
+    mControlThread->start();
 
 	return kResultTrue;
 }
