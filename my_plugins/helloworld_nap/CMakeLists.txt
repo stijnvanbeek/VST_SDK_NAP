@@ -28,6 +28,7 @@ set(plug_sources
     source/plugfactory.cpp
     source/plugcontroller.cpp
     source/plugprocessor.cpp
+    source/napinfo.cpp
 )
 
 # utility sources
@@ -63,6 +64,19 @@ file(GLOB_RECURSE python_sources ${NAP_DIRECTORY}/modules/nappython/src/*.*)
 list(REMOVE_ITEM python_sources ${NAP_DIRECTORY}/modules/nappython/src/mod_nappython.cpp)
 list(APPEND plug_sources ${python_sources})
 
+# parameter sources
+file(GLOB_RECURSE color_sources ${NAP_DIRECTORY}/modules/napcolor/src/*.*)
+list(REMOVE_ITEM color_sources ${NAP_DIRECTORY}/modules/napcolor/src/mod_napcolor.cpp)
+list(APPEND plug_sources ${color_sources})
+file(GLOB_RECURSE parameter_sources ${NAP_DIRECTORY}/modules/napparameter/src/*.*)
+list(REMOVE_ITEM parameter_sources ${NAP_DIRECTORY}/modules/napparameter/src/mod_napparameter.cpp)
+list(APPEND plug_sources ${parameter_sources})
+
+# python parameter sources
+file(GLOB_RECURSE pythonparameter_sources ${NAP_DIRECTORY}/modules/nappythonparameter/src/*.*)
+list(REMOVE_ITEM pythonparameter_sources ${NAP_DIRECTORY}/modules/nappythonparameter/src/mod_nappythonparameter.cpp)
+list(APPEND plug_sources ${pythonparameter_sources})
+
 # audio sources
 file(GLOB_RECURSE audio_sources ${NAP_DIRECTORY}/modules/napaudio/src/*.*)
 list(REMOVE_ITEM audio_sources ${NAP_DIRECTORY}/modules/napaudio/src/mod_napaudio.cpp)
@@ -94,6 +108,9 @@ set(include_directories
         ${NAP_DIRECTORY}/modules/napmath/src/
         ${NAP_DIRECTORY}/modules/napscene/src/
         ${NAP_DIRECTORY}/modules/nappython/src/
+        ${NAP_DIRECTORY}/modules/napcolor/src/
+        ${NAP_DIRECTORY}/modules/napparameter/src/
+        ${NAP_DIRECTORY}/modules/nappythonparameter/src/
         ${NAP_DIRECTORY}/modules/napaudio/src/
         ${NAP_DIRECTORY}/modules/napaudioadvanced/src/
         ${NAP_DIRECTORY}/modules/napmidi/src/
