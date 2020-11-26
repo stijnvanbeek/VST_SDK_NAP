@@ -1,3 +1,4 @@
+set(TARGET_NAME napplugin)
 set(NAP_DIRECTORY ${SDK_ROOT}/../../nap)
 set(THIRDPARTY_DIR ${SDK_ROOT}/../../thirdparty)
 set(NAP_ENABLE_PYTHON 1)
@@ -118,18 +119,20 @@ set(include_directories
 
 
 #--- HERE change the target Name for your plug-in (for ex. set(target myDelay))-------
-set(target helloworld_nap)
+set(target ${TARGET_NAME})
 
 smtg_add_vst3plugin(${target} ${plug_sources})
 set_target_properties(${target} PROPERTIES ${SDK_IDE_MYPLUGINS_FOLDER})
 
 target_compile_definitions(${target} PRIVATE _USE_MATH_DEFINES)
 if(APPLE)
+#    target_link_libraries(${target} PRIVATE base sdk RTTR::Core libsndfile libmpg123 "-framework CoreServices"  "-framework AppKit")
     target_link_libraries(${target} PRIVATE base sdk RTTR::Core pybind11::embed libsndfile libmpg123 "-framework CoreServices"  "-framework AppKit")
 elseif(win32)
     target_compile_definitions(${target} PUBLIC NOMINMAX)
     target_link_libraries(${target} PRIVATE base sdk RTTR::Core pybind11::embed libsndfile libmpg123)
 endif()
+#target_include_directories(${target} PUBLIC ${MOODYCAMEL_INCLUDE_DIRS} ${RAPIDJSON_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${LIBSNDFILE_INCLUDE_DIR} ${LIBMPG123_INCLUDE_DIR} ${NATIVEFILEDIALOG_INCLUDE_DIRS} ${include_directories})
 target_include_directories(${target} PUBLIC ${pybind11_INCLUDE_DIRS} ${MOODYCAMEL_INCLUDE_DIRS} ${RAPIDJSON_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${LIBSNDFILE_INCLUDE_DIR} ${LIBMPG123_INCLUDE_DIR} ${NATIVEFILEDIALOG_INCLUDE_DIRS} ${include_directories})
 
 if(SMTG_MAC)

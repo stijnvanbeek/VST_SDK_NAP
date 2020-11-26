@@ -2,7 +2,7 @@
 // Project     : VST SDK
 //
 // Category    : Examples
-// Filename    : plugids.h
+// Filename    : helloworld/include/version.h
 // Created by  : Steinberg, 01/2018
 // Description : HelloWorld Example for VST 3
 //
@@ -36,24 +36,46 @@
 
 #pragma once
 
-namespace Steinberg {
-namespace HelloWorld {
+#include "pluginterfaces/base/fplatform.h"
 
-// HERE are defined the parameter Ids which are exported to the host
-enum HelloWorldParams : Vst::ParamID
+#define MAJOR_VERSION_STR "1"
+#define MAJOR_VERSION_INT 1
+
+#define SUB_VERSION_STR "0"
+#define SUB_VERSION_INT 0
+
+#define RELEASE_NUMBER_STR "0"
+#define RELEASE_NUMBER_INT 0
+
+#define BUILD_NUMBER_STR "1" // Build number to be sure that each result could identified.
+#define BUILD_NUMBER_INT 1
+
+// Version with build number (example "1.0.3.342")
+#define FULL_VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR "." BUILD_NUMBER_STR
+
+// Version without build number (example "1.0.3")
+#define VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR
+
+// HERE you have to define your plug-in, company name, email and web
+#define stringPluginName		"NAP plugin"
+
+#define stringOriginalFilename	"napplugin.vst3"
+#if SMTG_PLATFORM_64
+#define stringFileDescription	stringPluginName" VST3-SDK (64Bit)"
+#else
+#define stringFileDescription	stringPluginName" VST3-SDK"
+#endif
+#define stringCompanyName		"Stijn van Beek\0"
+#define stringCompanyWeb		"http://www.stijnvanbeek.nl"
+#define stringCompanyEmail		"mailto:info@stijnvanbeek.nl"
+
+#define stringLegalCopyright	"� 2020 Stijn van Beek"
+#define stringLegalTrademarks	"VST is a trademark of Steinberg Media Technologies GmbH"
+
+namespace nap
 {
-	kBypassId = 100,
-
-	kParamVolId = 102,
-	kParamOnId = 1000
-};
+    constexpr char dataPath[] = "/Users/macbook/Documents/Repositories/nap/apps/napaudioapp/data/ambientdrone.json";
+    constexpr char pythonHomePath[] = "/Users/macbook/Documents/Repositories/thirdparty/python/osx/install";
+}
 
 
-// HERE you have to define new unique class ids: for processor and for controller
-// you can use GUID creator tools like https://www.guidgenerator.com/
-static const FUID MyProcessorUID (0xBD58B550, 0xF9E5634E, 0x9D2EFF39, 0xEA0927B1);
-static const FUID MyControllerUID (0xA0B1A6F4, 0x005D9B47, 0x967177E3, 0x7A671891);
-
-//------------------------------------------------------------------------
-} // namespace HelloWorld
-} // namespace Steinberg

@@ -42,7 +42,6 @@
 #include "pluginterfaces/base/ibstream.h"
 
 #include <nap/core.h>
-#include <pythonscriptservice.h>
 #include <parameter.h>
 #include <parameterservice.h>
 #include <rtti/jsonreader.h>
