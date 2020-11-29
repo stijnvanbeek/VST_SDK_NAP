@@ -51,14 +51,13 @@
 #include <pythonscriptservice.h>
 #include <parameter.h>
 #include <parameterservice.h>
+#include <controlthread.h>
 
 namespace Steinberg {
 namespace HelloWorld {
 
-// Initialize static member
-std::unique_ptr<nap::ControlThread> PlugProcessor::sControlThread = nullptr;
 
-    //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 PlugProcessor::PlugProcessor ()
 {
 	// register its editor class
@@ -68,8 +67,9 @@ PlugProcessor::PlugProcessor ()
 
 PlugProcessor::~PlugProcessor()
 {
-    sControlThread->removeCore(*mCore);
+    nap::ControlThread::get().disconnectPeriodicTask(mUpdateSlot);
 }
+
 
 //-----------------------------------------------------------------------------
 tresult PLUGIN_API PlugProcessor::initialize (FUnknown* context)
@@ -133,16 +133,11 @@ tresult PLUGIN_API PlugProcessor::initialize (FUnknown* context)
     mParameters = resourceManager->findObject<nap::ParameterGroup>("Parameters");
     if (nap::Global::parameters == nullptr)
         nap::Global::parameters = mParameters.get();
-
     mCore->start();
 
-    if (sControlThread == nullptr)
-    {
-        sControlThread = std::make_unique<nap::ControlThread>([](double){});
-        sControlThread->start();
-    }
-
-    sControlThread->addCore(*mCore);
+    auto& controlThread = nap::ControlThread::get();
+    controlThread.start();
+    controlThread.connectPeriodicTask(mUpdateSlot);
 
 	return kResultTrue;
 }

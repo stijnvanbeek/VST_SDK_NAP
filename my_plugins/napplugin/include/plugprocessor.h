@@ -81,8 +81,9 @@ protected:
 	nap::audio::AudioService* mAudioService = nullptr;
 	nap::MidiService* mMidiService = nullptr;
 	nap::rtti::ObjectPtr<nap::ParameterGroup> mParameters = nullptr;
-
-    static std::unique_ptr<nap::ControlThread> sControlThread;
+	std::function<void(double)> mUpdateFunction = [](double){};
+	nap::Slot<double> mUpdateSlot = { this, &PlugProcessor::update };
+    void update(double deltaTime) { mCore->update(mUpdateFunction); }
 };
 
 //------------------------------------------------------------------------
