@@ -30,7 +30,7 @@ macro(setupPlatformToolset)
             set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
             set(CMAKE_CXX_STANDARD 14)
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-            add_compile_options(-Wsuggest-override)     # Suggest override when missing 
+#            add_compile_options(-Wsuggest-override)     # Suggest override when missing
             link_libraries(c++)
         else()
             set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
