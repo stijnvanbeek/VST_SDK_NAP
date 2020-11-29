@@ -89,8 +89,7 @@ tresult PLUGIN_API PlugProcessor::initialize (FUnknown* context)
 
     nap::utility::ErrorState error;
 
-    std::set<nap::rtti::TypeInfo> serviceTypes = { RTTI_OF(nap::SceneService), RTTI_OF(nap::audio::AudioService), RTTI_OF(nap::audio::AdvancedAudioService), RTTI_OF(nap::MidiService), RTTI_OF(nap::ParameterService) };
-//    std::set<nap::rtti::TypeInfo> serviceTypes = { RTTI_OF(nap::SceneService), RTTI_OF(nap::audio::AudioService), RTTI_OF(nap::audio::AdvancedAudioService), RTTI_OF(nap::PythonScriptService), RTTI_OF(nap::MidiService), RTTI_OF(nap::ParameterService) };
+    std::set<nap::rtti::TypeInfo> serviceTypes = { RTTI_OF(nap::SceneService), RTTI_OF(nap::audio::AudioService), RTTI_OF(nap::audio::AdvancedAudioService), RTTI_OF(nap::PythonScriptService), RTTI_OF(nap::MidiService), RTTI_OF(nap::ParameterService) };
 
     // Initialize engine
     mCore = std::make_unique<nap::Core>();
