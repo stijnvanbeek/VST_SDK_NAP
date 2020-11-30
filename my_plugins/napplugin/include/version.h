@@ -72,10 +72,10 @@
 #define stringLegalCopyright	"� 2020 Stijn van Beek"
 #define stringLegalTrademarks	"VST is a trademark of Steinberg Media Technologies GmbH"
 
-namespace nap
-{
-    constexpr char dataPath[] = "/Users/macbook/Documents/Repositories/nap/apps/napaudioapp/data/ambientdrone.json";
-    constexpr char pythonHomePath[] = "/Users/macbook/Documents/Repositories/thirdparty/python/osx/install";
+namespace Steinberg {
+    namespace napplugin {
+        constexpr char dataPath[] = "/Users/macbook/Documents/Repositories/nap/apps/napaudioapp/data/ambientdrone.json";
+        constexpr char pythonHomePath[] = "/Users/macbook/Documents/Repositories/thirdparty/python/osx/install";
+    }
 }
-
 

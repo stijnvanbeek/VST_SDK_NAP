@@ -47,7 +47,7 @@
 #include <rtti/jsonreader.h>
 
 namespace Steinberg {
-namespace HelloWorld {
+namespace napplugin {
 
 //-----------------------------------------------------------------------------
 tresult PLUGIN_API PlugController::initialize (FUnknown* context)

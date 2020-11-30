@@ -39,7 +39,7 @@
 #include "public.sdk/source/vst/vsteditcontroller.h"
 
 namespace Steinberg {
-namespace HelloWorld {
+namespace napplugin {
 
 //-----------------------------------------------------------------------------
 class PlugController : public Vst::EditController

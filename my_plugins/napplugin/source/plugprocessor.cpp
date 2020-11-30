@@ -54,7 +54,7 @@
 #include <controlthread.h>
 
 namespace Steinberg {
-namespace HelloWorld {
+namespace napplugin {
 
 
 //-----------------------------------------------------------------------------

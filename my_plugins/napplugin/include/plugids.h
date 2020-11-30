@@ -37,7 +37,7 @@
 #pragma once
 
 namespace Steinberg {
-namespace HelloWorld {
+namespace napplugin {
 
 // HERE are defined the parameter Ids which are exported to the host
 enum HelloWorldParams : Vst::ParamID

@@ -47,7 +47,7 @@
 #include <parameter.h>
 
 namespace Steinberg {
-namespace HelloWorld {
+namespace napplugin {
 
 //-----------------------------------------------------------------------------
 class PlugProcessor : public Vst::AudioEffect
@@ -87,5 +87,5 @@ protected:
 };
 
 //------------------------------------------------------------------------
-} // namespace
+} // namespace napplugin
 } // namespace Steinberg
