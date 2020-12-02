@@ -1,7 +1,8 @@
-set(TARGET_NAME test2)
+set(TARGET_NAME napplugin)
 set(THIRDPARTY_DIR ${SDK_ROOT}/../../thirdparty)
 set(NAP_DIRECTORY ${SDK_ROOT}/../../nap)
-set(NAP_LIB_DIRECTORY ${NAP_DIRECTORY}/lib/AppleClang-x86_64-Debug)
+set(NAP_LIB_DIRECTORY_DEBUG ${NAP_DIRECTORY}/lib/AppleClang-x86_64-Debug)
+set(NAP_LIB_DIRECTORY_RELEASE ${NAP_DIRECTORY}/lib/AppleClang-x86_64-Release)
 set(NAP_ENABLE_PYTHON 1)
 add_definitions(-DNAP_ENABLE_PYTHON)
 
@@ -32,18 +33,19 @@ set(plug_sources
 )
 
 set (nap_libs
-        ${NAP_LIB_DIRECTORY}/naputility.a
-        ${NAP_LIB_DIRECTORY}/naprtti.dylib
-        ${NAP_LIB_DIRECTORY}/napcore.dylib
-        ${NAP_LIB_DIRECTORY}/mod_napmath.dylib
-        ${NAP_LIB_DIRECTORY}/mod_napscene.dylib
-        ${NAP_LIB_DIRECTORY}/mod_nappython.dylib
-        ${NAP_LIB_DIRECTORY}/mod_napparameter.dylib
-        ${NAP_LIB_DIRECTORY}/mod_nappythonparameter.dylib
-        ${NAP_LIB_DIRECTORY}/mod_napaudio.dylib
-        ${NAP_LIB_DIRECTORY}/mod_napaudioadvanced.dylib
-        ${NAP_LIB_DIRECTORY}/mod_napmidi.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/naputility.a optimized ${NAP_LIB_DIRECTORY_RELEASE}/naputility.a
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/naprtti.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/naprtti.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/napcore.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/napcore.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/mod_napmath.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/mod_napmath.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/mod_napscene.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/mod_napscene.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/mod_nappython.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/mod_nappython.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/mod_napparameter.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/mod_napparameter.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/mod_nappythonparameter.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/mod_nappythonparameter.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/mod_napaudio.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/mod_napaudio.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/mod_napaudioadvanced.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/mod_napaudioadvanced.dylib
+        debug ${NAP_LIB_DIRECTORY_DEBUG}/mod_napmidi.dylib optimized ${NAP_LIB_DIRECTORY_RELEASE}/mod_napmidi.dylib
 )
+
 
 set(include_directories
         include/
@@ -61,7 +63,6 @@ set(include_directories
         ${NAP_DIRECTORY}/modules/napmidi/src/
 )
 
-
 #--- HERE change the target Name for your plug-in (for ex. set(target myDelay))-------
 set(target ${TARGET_NAME})
 
@@ -75,6 +76,7 @@ elseif(win32)
     target_compile_definitions(${target} PUBLIC NOMINMAX)
     target_link_libraries(${target} PRIVATE base sdk RTTR::Core pybind11::embed libsndfile libmpg123 ${nap_libs})
 endif()
+
 target_include_directories(${target} PUBLIC ${pybind11_INCLUDE_DIRS} ${MOODYCAMEL_INCLUDE_DIRS} ${RAPIDJSON_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${LIBSNDFILE_INCLUDE_DIR} ${LIBMPG123_INCLUDE_DIR} ${NATIVEFILEDIALOG_INCLUDE_DIRS} ${include_directories})
 
 if(SMTG_MAC)
