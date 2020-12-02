@@ -36,4 +36,5 @@
 **/cmake-build-release/**
 **/cmake-build-debug/**
 **/AppleClang--Debug/**
+**/AppleClang--Release/**
 .idea
