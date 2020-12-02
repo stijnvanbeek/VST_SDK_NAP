@@ -2,6 +2,6 @@
 
 namespace nap
 {
-    ParameterGroup* Global::parameters = nullptr;
+    std::vector<nap::Parameter*> Global::parameters;
 }
 

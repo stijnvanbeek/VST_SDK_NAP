@@ -35,6 +35,8 @@ if(VST_SDK)
         source/vst/utility/ringbuffer.h
         source/vst/utility/vst2persistence.h
         source/vst/utility/vst2persistence.cpp
+        source/vst/utility/stringconvert.h
+        source/vst/utility/stringconvert.cpp
         source/vst/vstaudioeffect.cpp
         source/vst/vstaudioeffect.h
         source/vst/vstbus.cpp

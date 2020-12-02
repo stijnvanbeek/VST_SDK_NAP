@@ -74,7 +74,7 @@
 
 namespace Steinberg {
     namespace napplugin {
-        constexpr char dataPath[] = "/Users/macbook/Documents/Repositories/nap/apps/napaudioapp/data/ambientdrone.json";
+        constexpr char dataPath[] = "/Users/macbook/Documents/Repositories/nap/apps/napaudioapp/data/fmsynth.json";
         constexpr char pythonHomePath[] = "/Users/macbook/Documents/Repositories/thirdparty/python/osx/install";
     }
 }

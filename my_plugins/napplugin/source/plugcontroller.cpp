@@ -36,15 +36,17 @@
 
 #include "../include/plugcontroller.h"
 #include "../include/plugids.h"
+#include "public.sdk/source/vst/utility/stringconvert.h"
+
 #include "napinfo.h"
 
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ibstream.h"
 
-#include <nap/core.h>
 #include <parameter.h>
 #include <parameterservice.h>
-#include <rtti/jsonreader.h>
+#include <parametertypes.h>
+#include <controlthread.h>
 
 namespace Steinberg {
 namespace napplugin {
@@ -52,23 +54,55 @@ namespace napplugin {
 //-----------------------------------------------------------------------------
 tresult PLUGIN_API PlugController::initialize (FUnknown* context)
 {
-    auto napParameters = nap::Global::parameters;
 
 	tresult result = EditController::initialize (context);
 	if (result == kResultTrue)
 	{
 		//---Create Parameters------------
-		parameters.addParameter (STR16 ("Bypass"), 0, 1, 0,
+		parameters.addParameter (STR16("Bypass"), STR16(""), 1, 0,
 		                         Vst::ParameterInfo::kCanAutomate | Vst::ParameterInfo::kIsBypass,
-		                         HelloWorldParams::kBypassId);
+                                 kBypassId);
 
-		parameters.addParameter (STR16 ("Test2"), STR16 ("dB"), 0, .5,
-		                         Vst::ParameterInfo::kCanAutomate, HelloWorldParams::kParamVolId, 0,
-		                         STR16 ("Param1"));
-		parameters.addParameter (STR16 ("Parameter 2"), STR16 ("On/Off"), 1, 1.,
-		                         Vst::ParameterInfo::kCanAutomate, HelloWorldParams::kParamOnId, 0,
-		                         STR16 ("Param2"));
+		nap::ControlThread::get().enqueue([&](){
+            auto paramID = kBypassId + 1;
+            mParameters = nap::Global::parameters;
+            for (auto& napParameter : mParameters)
+            {
+                Vst::TChar paramName[128];
+
+                if (napParameter->get_type() == RTTI_OF(nap::ParameterFloat))
+                {
+                    auto napParameterFloat = rtti_cast<nap::ParameterFloat>(napParameter);
+                    VST3::StringConvert::convert(napParameterFloat->getDisplayName(), paramName);
+                    auto parameter = std::make_unique<Vst::RangeParameter>(paramName, paramID++, STR16(""), napParameterFloat->mMinimum, napParameterFloat->mMaximum, napParameterFloat->mValue);
+                    parameters.addParameter(parameter.release());
+                }
+
+                if (napParameter->get_type() == RTTI_OF(nap::ParameterInt))
+                {
+                    auto napParameterInt = rtti_cast<nap::ParameterInt>(napParameter);
+                    VST3::StringConvert::convert(napParameterInt->getDisplayName(), paramName);
+                    auto parameter = std::make_unique<Vst::RangeParameter>(paramName, paramID++, STR16(""), napParameterInt->mMinimum, napParameterInt->mMaximum, napParameterInt->mValue, 1.f);
+                    parameters.addParameter(parameter.release());
+                }
+
+                if (napParameter->get_type() == RTTI_OF(nap::ParameterOptionList))
+                {
+                    auto napParameterOptionList = rtti_cast<nap::ParameterOptionList>(napParameter);
+                    VST3::StringConvert::convert(napParameterOptionList->getDisplayName(), paramName);
+                    auto parameter = std::make_unique<Vst::StringListParameter>(paramName, paramID++, STR16(""));
+                    Vst::TChar optionName[128];
+                    for (auto& option : napParameterOptionList->getOptions())
+                    {
+                        VST3::StringConvert::convert(option, optionName);
+                        parameter->appendString(optionName);
+                    }
+                    parameters.addParameter(parameter.release());
+                }
+            }
+		}, true);
 	}
+
 	return kResultTrue;
 }
 
@@ -82,19 +116,30 @@ tresult PLUGIN_API PlugController::setComponentState (IBStream* state)
 
 	IBStreamer streamer (state, kLittleEndian);
 
-	float savedParam1 = 0.f;
-	if (streamer.readFloat (savedParam1) == false)
-		return kResultFalse;
-	setParamNormalized (HelloWorldParams::kParamVolId, savedParam1);
-
-	int8 savedParam2 = 0;
-	if (streamer.readInt8 (savedParam2) == false)
-		return kResultFalse;
-	setParamNormalized (HelloWorldParams::kParamOnId, savedParam2);
+	auto paramId = 1;
+	for (auto& napParam : mParameters)
+    {
+        if (napParam->get_type() == RTTI_OF(nap::ParameterFloat))
+        {
+            float value;
+            if (!streamer.readFloat(value))
+                return kResultFalse;
+            auto param = parameters.getParameter(paramId++);
+            param->setNormalized(param->toNormalized(value));
+        }
+        if (napParam->get_type() == RTTI_OF(nap::ParameterInt) || napParam->get_type() == RTTI_OF(nap::ParameterOptionList))
+        {
+            int value;
+            if (!streamer.readInt32(value))
+                return kResultFalse;
+            auto param = parameters.getParameter(paramId++);
+            param->setNormalized(param->toNormalized(value));
+        }
+    }
 
 	// read the bypass
 	int32 bypassState;
-	if (streamer.readInt32 (bypassState) == false)
+	if (!streamer.readInt32 (bypassState))
 		return kResultFalse;
 	setParamNormalized (kBypassId, bypassState ? 1 : 0);
 
@@ -102,5 +147,5 @@ tresult PLUGIN_API PlugController::setComponentState (IBStream* state)
 }
 
 //------------------------------------------------------------------------
-} // namespace
+} // namespace napplugin
 } // namespace Steinberg

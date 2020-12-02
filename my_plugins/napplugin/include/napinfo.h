@@ -9,7 +9,7 @@ namespace nap
 
     struct Global
     {
-        static ParameterGroup* parameters;
+        static std::vector<nap::Parameter*> parameters;
     };
 
 }

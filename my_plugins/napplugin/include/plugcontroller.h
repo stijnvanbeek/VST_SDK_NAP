@@ -37,6 +37,7 @@
 #pragma once
 
 #include "public.sdk/source/vst/vsteditcontroller.h"
+#include <parameter.h>
 
 namespace Steinberg {
 namespace napplugin {
@@ -60,6 +61,8 @@ public:
 	//---from EditController-----
 	tresult PLUGIN_API setComponentState (IBStream* state) SMTG_OVERRIDE;
 
+private:
+    std::vector<nap::Parameter*> mParameters;
 };
 
 //------------------------------------------------------------------------

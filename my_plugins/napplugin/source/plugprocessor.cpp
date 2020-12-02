@@ -51,6 +51,7 @@
 #include <pythonscriptservice.h>
 #include <parameter.h>
 #include <parameterservice.h>
+#include <parametertypes.h>
 #include <controlthread.h>
 
 namespace Steinberg {
@@ -78,6 +79,7 @@ tresult PLUGIN_API PlugProcessor::initialize (FUnknown* context)
 	tresult result = AudioEffect::initialize (context);
 	if (result != kResultTrue)
 		return kResultFalse;
+	auto resultPtr = &result;
 
 	//--- create midi input
     addEventInput (STR16("MIDI in"), 1);
@@ -87,57 +89,71 @@ tresult PLUGIN_API PlugProcessor::initialize (FUnknown* context)
 	addAudioInput (STR16("AudioInput"), Vst::SpeakerArr::kStereo);
 	addAudioOutput (STR16("AudioOutput"), Vst::SpeakerArr::kStereo);
 
-    nap::utility::ErrorState error;
+    auto controlThread = &nap::ControlThread::get();
+    controlThread->start();
+    controlThread->enqueue([&, resultPtr](){
+        nap::utility::ErrorState error;
 
-    std::set<nap::rtti::TypeInfo> serviceTypes = { RTTI_OF(nap::SceneService), RTTI_OF(nap::audio::AudioService), RTTI_OF(nap::audio::AdvancedAudioService), RTTI_OF(nap::PythonScriptService), RTTI_OF(nap::MidiService), RTTI_OF(nap::ParameterService) };
+        std::set<nap::rtti::TypeInfo> serviceTypes = { RTTI_OF(nap::SceneService), RTTI_OF(nap::audio::AudioService), RTTI_OF(nap::audio::AdvancedAudioService), RTTI_OF(nap::PythonScriptService), RTTI_OF(nap::MidiService), RTTI_OF(nap::ParameterService) };
 
-    // Initialize engine
-    mCore = std::make_unique<nap::Core>();
-    if (!mCore->initializeEngine(nap::dataPath, nap::pythonHomePath, serviceTypes, error))
-    {
-        error.fail("unable to initialize engine");
-        return kResultTrue;
-    }
-    // Initialize the various services
-    if (!mCore->initializeServices(error))
-    {
-        mCore->shutdownServices();
-        error.fail("Failed to initialize services");
+        // Initialize engine
+        mCore = std::make_unique<nap::Core>();
+        if (!mCore->initializeEngine(dataPath, pythonHomePath, serviceTypes, error))
+        {
+            error.fail("unable to initialize engine");
+            *resultPtr = kResultFalse;
+            return;
+        }
+        // Initialize the various services
+        if (!mCore->initializeServices(error))
+        {
+            mCore->shutdownServices();
+            error.fail("Failed to initialize services");
+            *resultPtr = kResultFalse;
+            return;
+        }
+
+        if (!mCore->initializePython(error)) {
+            *resultPtr = kResultFalse;
+            return;
+        }
+
+        mAudioService = mCore->getService<nap::audio::AudioService>();
+        if (mAudioService == nullptr)
+        {
+            error.fail("Couldn't find audio service");
+            *resultPtr = kResultFalse;
+            return;
+        }
+
+        mMidiService = mCore->getService<nap::MidiService>();
+        if (mMidiService == nullptr)
+        {
+            error.fail("Couldn't find midi service");
+            *resultPtr = kResultFalse;
+            return;
+        }
+
+        auto resourceManager = mCore->getResourceManager();
+        if (!resourceManager->loadFile(nap::utility::getFileName(dataPath), error))
+        {
+            error.fail("Failed to load json file");
+            *resultPtr = kResultFalse;
+            return;
+        }
+
+        auto parameterGroup = resourceManager->findObject<nap::ParameterGroup>("Parameters");
+        for (auto& param : parameterGroup->mParameters)
+            mParameters.emplace_back(param.get());
+        nap::Global::parameters = mParameters;
+
+        mCore->start();
+    }, true);
+
+    controlThread->connectPeriodicTask(mUpdateSlot);
+
+    if (*resultPtr == kResultFalse)
         return kResultFalse;
-    }
-
-    if (!mCore->initializePython(error))
-        return kResultFalse;
-
-    mAudioService = mCore->getService<nap::audio::AudioService>();
-    if (mAudioService == nullptr)
-    {
-        error.fail("Couldn't find audio service");
-        return kResultFalse;
-    }
-
-    mMidiService = mCore->getService<nap::MidiService>();
-    if (mMidiService == nullptr)
-    {
-        error.fail("Couldn't find midi service");
-        return kResultFalse;
-    }
-
-    auto resourceManager = mCore->getResourceManager();
-    if (!resourceManager->loadFile(nap::utility::getFileName(nap::dataPath), error))
-    {
-        error.fail("Failed to load json file");
-        return kResultFalse;
-    }
-
-    mParameters = resourceManager->findObject<nap::ParameterGroup>("Parameters");
-    if (nap::Global::parameters == nullptr)
-        nap::Global::parameters = mParameters.get();
-    mCore->start();
-
-    auto& controlThread = nap::ControlThread::get();
-    controlThread.start();
-    controlThread.connectPeriodicTask(mUpdateSlot);
 
 	return kResultTrue;
 }
@@ -200,23 +216,37 @@ tresult PLUGIN_API PlugProcessor::process (Vst::ProcessData& data)
 				Vst::ParamValue value;
 				int32 sampleOffset;
 				int32 numPoints = paramQueue->getPointCount ();
-				switch (paramQueue->getParameterId ())
-				{
-					case HelloWorldParams::kParamVolId:
-						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
-						    kResultTrue)
-							mParam1 = value;
-						break;
-					case HelloWorldParams::kParamOnId:
-						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
-						    kResultTrue)
-							mParam2 = value > 0 ? 1 : 0;
-						break;
-					case HelloWorldParams::kBypassId:
-						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
-						    kResultTrue)
-							mBypass = (value > 0.5f);
-						break;
+				if (paramQueue->getParameterId() == kBypassId)
+                {
+                    if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) == kResultTrue)
+                        mBypass = (value > 0.5f);
+                }
+
+                int paramId = 1; // start from 1, 0 is reserved for bypass
+                for (auto& parameter : mParameters)
+                {
+                    auto& controlThread = nap::ControlThread::get();
+                    if (paramQueue->getParameterId() == paramId++)
+                    {
+                        if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) == kResultTrue)
+                        {
+                            auto floatParam = rtti_cast<nap::ParameterFloat>(parameter);
+                            if (floatParam != nullptr)
+                                controlThread.enqueue([floatParam, value](){
+                                    floatParam->setValue(nap::math::fit<float>(value, 0.f, 1.f, floatParam->mMinimum, floatParam->mMaximum));
+                                });
+                            auto intParam = rtti_cast<nap::ParameterInt>(parameter);
+                            if (intParam != nullptr)
+                                controlThread.enqueue([intParam, value](){
+                                    intParam->setValue(nap::math::fit<float>(value, 0.f, 1.f, intParam->mMinimum, intParam->mMaximum));
+                                });
+                            auto optionParam = rtti_cast<nap::ParameterOptionList>(parameter);
+                            if (optionParam != nullptr)
+                                controlThread.enqueue([optionParam, value](){
+                                    optionParam->setValue(nap::math::fit<float>(value, 0.f, 1.f, 0, optionParam->getOptions().size() - 1));
+                                });
+                        }
+                    }
 				}
 			}
 		}
@@ -237,18 +267,12 @@ tresult PLUGIN_API PlugProcessor::process (Vst::ProcessData& data)
                 {
                     auto midiEvent = std::make_unique<nap::MidiEvent>(nap::MidiEvent::Type::noteOn, e.noteOn.pitch, e.noteOn.velocity * 127);
                     mMidiService->enqueueEvent(std::move(midiEvent));
-//                    notes[eventPos++] = e.sampleOffset;
-//                    notes[eventPos++] = e.noteOn.pitch;
-//                    notes[eventPos++] = e.noteOn.velocity * 127;
                     break;
                 }
                 case Vst::Event::kNoteOffEvent:
                 {
                     auto midiEvent = std::make_unique<nap::MidiEvent>(nap::MidiEvent::Type::noteOff, e.noteOn.pitch, 0);
                     mMidiService->enqueueEvent(std::move(midiEvent));
-//                    notes[eventPos++] = e.sampleOffset;
-//                    notes[eventPos++] = e.noteOff.pitch;
-//                    notes[eventPos++] = 0;
                     break;
                 }
                 default:
@@ -268,8 +292,6 @@ tresult PLUGIN_API PlugProcessor::process (Vst::ProcessData& data)
 	if (data.numSamples > 0)
 	{
 		// Process Algorithm
-		// Ex: algo.process (data.inputs[0].channelBuffers32, data.outputs[0].channelBuffers32,
-		// data.numSamples);
 		mAudioService->onAudioCallback(data.numInputs > 0 ? data.inputs[0].channelBuffers32 : nullptr, data.outputs[0].channelBuffers32, data.numSamples);
 	}
 	return kResultOk;
@@ -284,21 +306,37 @@ tresult PLUGIN_API PlugProcessor::setState (IBStream* state)
 	// called when we load a preset or project, the model has to be reloaded
 
 	IBStreamer streamer (state, kLittleEndian);
+    auto& controlThread = nap::ControlThread::get();
 
-	float savedParam1 = 0.f;
-	if (streamer.readFloat (savedParam1) == false)
-		return kResultFalse;
+    for (auto& napParameter : mParameters) {
+        if (napParameter->get_type() == RTTI_OF(nap::ParameterFloat)) {
+            auto param = rtti_cast<nap::ParameterFloat>(napParameter);
+            float value;
+            if (!streamer.readFloat(value))
+                return kResultFalse;
+            controlThread.enqueue([param, value]() { param->setValue(value); });
+        }
 
-	int32 savedParam2 = 0;
-	if (streamer.readInt32 (savedParam2) == false)
-		return kResultFalse;
+        if (napParameter->get_type() == RTTI_OF(nap::ParameterInt)) {
+            auto param = rtti_cast<nap::ParameterInt>(napParameter);
+            int value;
+            if (!streamer.readInt32(value))
+                return kResultFalse;
+            controlThread.enqueue([param, value]() { param->setValue(value); });
+        }
+
+        if (napParameter->get_type() == RTTI_OF(nap::ParameterOptionList)) {
+            auto param = rtti_cast<nap::ParameterOptionList>(napParameter);
+            int value;
+            if (!streamer.readInt32(value))
+                return kResultFalse;
+            controlThread.enqueue([param, value]() { param->setValue(value); });
+        }
+    }
 
 	int32 savedBypass = 0;
-	if (streamer.readInt32 (savedBypass) == false)
+	if (streamer.readInt32 (savedBypass))
 		return kResultFalse;
-
-	mParam1 = savedParam1;
-	mParam2 = savedParam2 > 0 ? 1 : 0;
 	mBypass = savedBypass > 0;
 
 	return kResultOk;
@@ -309,13 +347,20 @@ tresult PLUGIN_API PlugProcessor::getState (IBStream* state)
 {
 	// here we need to save the model (preset or project)
 
-	float toSaveParam1 = mParam1;
-	int32 toSaveParam2 = mParam2;
-	int32 toSaveBypass = mBypass ? 1 : 0;
 
 	IBStreamer streamer (state, kLittleEndian);
-	streamer.writeFloat (toSaveParam1);
-	streamer.writeInt32 (toSaveParam2);
+
+    for (auto& param : mParameters)
+    {
+        if (param->get_type() == RTTI_OF(nap::ParameterFloat))
+            streamer.writeFloat(rtti_cast<nap::ParameterFloat>(param)->mValue);
+        if (param->get_type() == RTTI_OF(nap::ParameterInt))
+            streamer.writeInt32(rtti_cast<nap::ParameterInt>(param)->mValue);
+        if (param->get_type() == RTTI_OF(nap::ParameterOptionList))
+            streamer.writeInt32(rtti_cast<nap::ParameterOptionList>(param)->mValue);
+    }
+
+    int32 toSaveBypass = mBypass ? 1 : 0;
 	streamer.writeInt32 (toSaveBypass);
 
 	return kResultOk;

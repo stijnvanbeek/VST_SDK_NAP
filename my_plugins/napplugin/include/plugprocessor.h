@@ -80,7 +80,7 @@ protected:
 	std::unique_ptr<nap::Core> mCore = nullptr;
 	nap::audio::AudioService* mAudioService = nullptr;
 	nap::MidiService* mMidiService = nullptr;
-	nap::rtti::ObjectPtr<nap::ParameterGroup> mParameters = nullptr;
+	std::vector<nap::Parameter*> mParameters;
 	std::function<void(double)> mUpdateFunction = [](double){};
 	nap::Slot<double> mUpdateSlot = { this, &PlugProcessor::update };
     void update(double deltaTime) { mCore->update(mUpdateFunction); }
